@@ -34,8 +34,8 @@
 #define TEMP_HYSTERESIS 15 //define how much temperature needs to drop to resume
 #define DROP_TIME 300 //time to drop the case in ms
 #define RELOAD_TIME 5000 //time for user to load a new case in free run mode (ms)
-#define MIN_ANNEAL_TIME 2000
-#define MAX_ANNEAL_TIME 8000
+#define MIN_ANNEAL_TIME 2000 //min anneal time in ms
+#define MAX_ANNEAL_TIME 8000 //max anneal time in ms
 #define LONG_PRESS_HOLD_TIME 15 //loop iterations for long button press e.g. 15 x 100ms = 1.5s press and hold
 #define LOOP_TIME 120  //ms per main loop iteration
 #define COOLDOWN_PERIOD 300000 //Cooling period in milliseconds
@@ -272,12 +272,8 @@ void setup()
   pinMode(g_ModeLedPin, OUTPUT);
   pinMode(g_CoolingFanPin, OUTPUT);
   pinMode(g_DropSolenoidPin, OUTPUT);
-  //pinMode(A3,OUTPUT);
-  //pinMode(11,OUTPUT);
   pinMode(g_DropServoPin,OUTPUT);
   closeDropGate();
-  // power up LCD.
-  //digitalWrite(A3, HIGH);
   turnStartStopLedOff();  
   turnModeLedOff();
   turnAnnealerOff();     
@@ -360,7 +356,7 @@ void setup()
   sensors.setResolution(tempDeviceAddress, TEMP_RESOLUTION);
   sensors.requestTemperatures();
   sensors.setWaitForConversion(false);
-
+  //setup the watchdog timer. it needs a boot every 500ms.
   wdt_enable(WDTO_500MS);
 }
 
@@ -394,8 +390,9 @@ void loop()
   static float temperaturePrev = 0;
   static bool Just_Booted = 1;
 
-  //read keys
+  //boot the watchdog
   wdt_reset();
+  //read keys
   LoopStartTime = millis(); // capture time when loop starts
   start = readStartButton();
   modeKey = readModeButton();
@@ -405,7 +402,7 @@ void loop()
   {
     if (g_SystemState == STATE_STOPPED)
     { 
-      if(Just_Booted)
+      if(Just_Booted) //Show the warning screen to set the right case heigth and time 1st time
       {
         updateSystemState(STATE_SHOW_WARNING);
         Just_Booted = 0;
@@ -704,12 +701,6 @@ void loop()
       display.println(sensors.getDeviceCount());
       display.print("Current sensor : ");
       display.println(CurrentSensorPresent); 
-      /*display.print("Case drop : ");
-      #ifdef SERVO
-        display.println("Servo");
-      #else
-        display.println("Solenoid");
-      #endif*/
       display.setTextSize(2);
       display.display();
     }
@@ -810,7 +801,6 @@ void loop()
         annealTimeChanged = false;
       }
   }
-  //delay(100);
 
 }
 
