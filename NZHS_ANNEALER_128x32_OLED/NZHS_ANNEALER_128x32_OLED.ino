@@ -34,7 +34,7 @@
 #define TEMP_HYSTERESIS 15 //define how much temperature needs to drop to resume
 #define DROP_TIME 300 //time to drop the case in ms
 #define RELOAD_TIME 5000 //time for user to load a new case in free run mode (ms)
-#define MIN_ANNEAL_TIME 2000 //min anneal time in ms
+#define MIN_ANNEAL_TIME 1200 //min anneal time in ms
 #define MAX_ANNEAL_TIME 8000 //max anneal time in ms
 #define LONG_PRESS_HOLD_TIME 15 //loop iterations for long button press e.g. 15 x 100ms = 1.5s press and hold
 #define LOOP_TIME 120  //ms per main loop iteration
