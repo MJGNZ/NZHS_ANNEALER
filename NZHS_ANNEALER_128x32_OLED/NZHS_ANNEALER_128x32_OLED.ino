@@ -24,7 +24,7 @@
 //                        | | | 
 //                        | | | 
 //                        | | | 
-#define SOFTWARE_VERSION "2.0.0"
+#define SOFTWARE_VERSION "2.1.0"
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -42,6 +42,7 @@
 #define DISPLAY_ADDRESS 0x3C
 #define SERVO_OPEN_POSITION 7  //timer load value for servo pulse. 128us per timer count. 7 => 0.89ms pulse
 #define SERVO_CLOSE_POSITION 15 // 15 => 1.92ms pulse
+#define MODE_KEY_USED  //defines the use of the mode key input. comment out this #define to disable mode selection and reassign the mode key input to force case drop in the event of a stuck case
 
 // temp sensor pin asignment DS1820
 #define ONE_WIRE_BUS 8
@@ -371,7 +372,11 @@ void loop()
   static bool isSerialInterface = false;
   static bool start;
   static bool startPrev;
-  static bool modeState = false; //single shot or free run mode
+  #ifdef MODE_KEY_USED
+  	static bool modeState = false; //single shot or free run mode - false = single shot
+  #else
+  	static bool modeState = true; //single shot or free run mode - true = free run
+  #endif
   static bool modeKey;
   static bool modeKeyPrev;
   static bool upKey=0;
@@ -421,32 +426,43 @@ void loop()
 
   if(modeKey == 0)
   {
-    modeKeyDuration = 0;
+    #ifdef MODE_KEY_USED
+    	modeKeyDuration = 0;
+    #else
+	    if(modeKeyPrev)
+	    {
+	    	closeDropGate();
+	    }
+    #endif
   }
   else
   {
-    if (!modeKeyPrev) //mode key just pressed?
-    {
-      if (g_SystemState == STATE_SHOW_SOFTWARE_VER | g_SystemState == STATE_OVERCURRENT_WARNING)
-      {
-        updateSystemState(STATE_STOPPED);
-      }
-      modeState = !modeState;
-      if(modeState)
-      {
-        turnModeLedOn();
-      }
-      else
-      {
-        turnModeLedOff();
-      }
-    }
-    modeKeyDuration = modeKeyDuration + 1;
-    if (modeKeyDuration >= LONG_PRESS_HOLD_TIME) //long press
-      {
-        updateSystemState(STATE_SHOW_SOFTWARE_VER);
-        modeKeyDuration = 0;
-      }
+  	#ifdef MODE_KEY_USED
+	    if (!modeKeyPrev) //mode key just pressed?
+	    {
+	      if (g_SystemState == STATE_SHOW_SOFTWARE_VER | g_SystemState == STATE_OVERCURRENT_WARNING)
+	      {
+	        updateSystemState(STATE_STOPPED);
+	      }
+	      modeState = !modeState;
+	      if(modeState)
+	      {
+	        turnModeLedOn();
+	      }
+	      else
+	      {
+	        turnModeLedOff();
+	      }
+	    }
+	    modeKeyDuration = modeKeyDuration + 1;
+	    if (modeKeyDuration >= LONG_PRESS_HOLD_TIME) //long press
+	      {
+	        updateSystemState(STATE_SHOW_SOFTWARE_VER);
+	        modeKeyDuration = 0;
+	      }
+    #else
+      	openDropGate();
+    #endif
   }
 
 
@@ -540,7 +556,7 @@ void loop()
       display.display();
       turnStartStopLedOff();  
       turnAnnealerOff();     
-      closeDropGate();
+      //closeDropGate();
       psuCurrent_ma = readPsuCurrent_ma(); //--------- added this
       updateSystemState(STATE_STOPPED);
     }
