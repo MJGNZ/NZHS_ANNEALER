@@ -24,7 +24,7 @@
 //                        | | | 
 //                        | | | 
 //                        | | | 
-#define SOFTWARE_VERSION "2.1.0"
+#define SOFTWARE_VERSION "3.0.0"
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -32,16 +32,23 @@
 #define TEMP_LIMIT 55 //capacitor temperature limit degC
 #define TEMP_CONVERSION_TIME 120 //measurement time for DS18B20 9,10,11,12 bit = 95ms, 190ms, 375ms, 750ms
 #define TEMP_HYSTERESIS 15 //define how much temperature needs to drop to resume
-#define DROP_TIME 300 //time to drop the case in ms
+#define DROP_TIME 500 //time to drop the case in ms
 #define RELOAD_TIME 5000 //time for user to load a new case in free run mode (ms)
+#define RELOAD_TIME_AUTO__FEED 2000 //time to feed case in auto feed mode (ms) - recommend leaving at 2000
 #define MIN_ANNEAL_TIME 2000 //min anneal time in ms
 #define MAX_ANNEAL_TIME 8000 //max anneal time in ms
 #define LONG_PRESS_HOLD_TIME 15 //loop iterations for long button press e.g. 15 x 100ms = 1.5s press and hold
 #define LOOP_TIME 120  //ms per main loop iteration
 #define COOLDOWN_PERIOD 300000 //Cooling period in milliseconds
 #define DISPLAY_ADDRESS 0x3C
-#define SERVO_OPEN_POSITION 7  //timer load value for servo pulse. 128us per timer count. 7 => 0.89ms pulse
+#define SERVO_OPEN_POSITION 5  //timer load value for servo pulse. 128us per timer count. 7 => 0.89ms pulse
 #define SERVO_CLOSE_POSITION 15 // 15 => 1.92ms pulse
+#define STEPPER_STEPS_PER_TURN 200*STEPPER_MICROSTEPS // stepper motor steps per revolution (e.g. 200 step motor) * microsteps.
+#define STEPPER_MICROSTEPS 16 // number of microsteps. set to 1 if no microstepping
+#define CASE_FEEDER_STEPS_DROP_TO_PRELOAD 185*STEPPER_MICROSTEPS
+#define CASE_FEEDER_STEPS_PRELOAD_TO_DROP (STEPPER_STEPS_PER_TURN - CASE_FEEDER_STEPS_DROP_TO_PRELOAD)
+#define CASE_FEEDER_HOPPER_START 70*STEPPER_MICROSTEPS
+#define CASE_FEEDER_HOPPER_END 130*STEPPER_MICROSTEPS
 #define MODE_KEY_USED  //defines the use of the mode key input. comment out this #define to disable mode selection and reassign the mode key input to force case drop in the event of a stuck case
 
 // temp sensor pin asignment DS1820
@@ -58,6 +65,9 @@ DeviceAddress tempDeviceAddress;
 static uint8_t NumberDallasTempDevices = 0;
 static bool CurrentSensorPresent = 0;
 static uint16_t psuCurrentZeroOffset = 0;
+static uint16_t StepsToGo = 0;
+static uint16_t StepsFromHome = 0;
+static bool StepToggle = 0;
 
 //--define state machine states-----------------------------------------------------------
 typedef enum tStateMachineStates
@@ -74,18 +84,28 @@ typedef enum tStateMachineStates
   STATE_UNKNOWN,
 } tStateMachineStates;
 
+typedef enum ModeList
+{
+  MODE_SINGLE_SHOT = 0, 
+  MODE_FREE_RUN,
+  MODE_AUTOMATIC,
+} ModeList;
 
 //--global constant declarations-----------------------------------------
 static const uint8_t g_StartStopButtonPin   = 2;
 static const uint8_t g_ModeButtonPin        = 3;
 static const uint8_t g_AnnealerPin          = 6;
 static const uint8_t g_DropServoPin         = 9;
+static const uint8_t g_FeederStepPin       = 12;
 static const uint8_t g_StartStopLedPin      = 4;
 static const uint8_t g_CoolingFanPin        = 7;
 static const uint8_t g_ModeLedPin           = 11;
 static const uint8_t g_PsuCurrentAdcPin     = 0;
 static const uint8_t g_DropSolenoidPin      = 10;
 static const uint8_t g_TimeSetButtonPin     = 16;
+static const uint8_t g_FeederDirPin         = 13;
+static const uint8_t g_FeederStepperEnPin   = 5;
+
 
  // custom startup image, 128x32px
 const unsigned char anneallogo [] PROGMEM = {
@@ -233,6 +253,12 @@ const unsigned char projectile2 [] PROGMEM = {
 static tStateMachineStates g_SystemState = STATE_JUST_BOOTED;
 static tStateMachineStates g_SystemStatePrev = STATE_UNKNOWN;
 
+#ifdef MODE_KEY_USED
+  static ModeList CurrentMode = MODE_SINGLE_SHOT; //mode key is used so set default mode to single shot
+#else
+  static ModeList CurrentMode = MODE_FREE_RUN; //mode key is not used so set default mode to free run
+#endif
+
 //-- function declarations------------------------------------------------
 static tStateMachineStates updateSystemState(tStateMachineStates const state);
 static bool hasSystemStateChanged(void);
@@ -252,6 +278,10 @@ static void turnCoolingFanOff(void);
 static uint16_t readPsuVoltage_mv(void);
 static uint16_t readPsuCurrent_ma(void);
 static uint16_t readAnnealingTime_ms(void);
+static void preloadCase(void);
+static void loadCase(void);
+static void returnCaseFeederHome(void);
+static bool caseFeederStillMoving(void);
 
 /*---------------------------------------------------------------------------*/
 /*! @brief      Initialize the Case Annealer.
@@ -262,8 +292,24 @@ static uint16_t readAnnealingTime_ms(void);
 void setup()
 {
   //TCCR0B = TCCR0B & B11111000 | B00000101; //PWM on D5 & D6 set to 61.04Hz Timer 0 -- Timer Used for system ms tick
-  TCCR2B = TCCR2B & B11111000 | B00000111; //PWM on D3 & D11 set to 30.64Hz Timer 2
-  TCCR1B = TCCR1B & B11111000 | B00000101; //PWM on D9 & D10 of 30.64 Hz Timer 1   <---- USE IO9 PWM for Servo
+ // TCCR2B = TCCR2B & B11111000 | B00000110; //PWM on D3 & D11 set to 122.55Hz Timer 2  <--- tiner 2
+  TCCR1B = TCCR1B & B11111000 | B00000101; //PWM on D9 & D10 of 30.64 Hz Timer 1   <---- USE IO9 PWM for drop gate Servo
+
+//set timer2 interrupt
+  TCCR2A = 0;// set entire TCCR2A register to 0
+  TCCR2B = 0;// same for TCCR2B
+  TCNT2  = 0;//initialize counter value to 0
+  // set compare match register - divide by microsteps to shorten step period
+  OCR2A = 170 / STEPPER_MICROSTEPS; //250
+  // turn on CTC mode
+  TCCR2A |= (1 << WGM21);
+  // Set CS20-22 bit for prescaler
+  TCCR2B |= (1 << CS22);   
+  TCCR2B |= (1 << CS21); 
+
+  // enable timer compare interrupt
+  TIMSK2 |= (1 << OCIE2A);
+
   // Setup IO.
   pinMode(g_StartStopButtonPin, INPUT_PULLUP);
   pinMode(g_ModeButtonPin, INPUT_PULLUP);
@@ -274,6 +320,11 @@ void setup()
   pinMode(g_CoolingFanPin, OUTPUT);
   pinMode(g_DropSolenoidPin, OUTPUT);
   pinMode(g_DropServoPin,OUTPUT);
+  pinMode(g_FeederStepPin,OUTPUT);
+  pinMode(g_FeederDirPin,OUTPUT);
+  pinMode(g_FeederStepperEnPin,OUTPUT);
+  digitalWrite(g_FeederDirPin,HIGH);
+  digitalWrite(g_FeederStepperEnPin,HIGH); //disable stepper driver
   closeDropGate();
   turnStartStopLedOff();  
   turnModeLedOff();
@@ -360,6 +411,65 @@ void setup()
   //setup the watchdog timer. it needs a boot every 500ms.
   wdt_enable(WDTO_500MS);
 }
+/*---------------------------------------------------------------------------*/
+/*! @brief      Timer2 ISR
+  @details      None.
+  @param        None.
+  @return       Never.
+*//*-------------------------------------------------------------------------*/
+
+ISR(TIMER2_COMPA_vect){//timer2 interrupt 
+  if(StepsToGo)
+	  {
+	  if (StepToggle)
+	  {
+	    digitalWrite(g_FeederStepPin,HIGH);
+	    StepToggle = 0;
+	    if(StepsFromHome + 1 >= STEPPER_STEPS_PER_TURN)
+		  {
+		  	StepsFromHome = 0;
+		  }
+		  else
+		  {
+		  	StepsFromHome = StepsFromHome + 1;
+		  }
+      if(StepsFromHome < CASE_FEEDER_HOPPER_START) //move feed wheel quickly to pick the next case
+      {
+          // set compare match register - divide by microsteps to shorten step period
+
+          OCR2A = 120 / STEPPER_MICROSTEPS;
+
+      }
+      else if(StepsFromHome < CASE_FEEDER_HOPPER_END) //slow down the feed wheel while picking the case for more reliable pickups
+      {
+          // set compare match register - divide by microsteps to shorten step period
+          #ifdef STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
+            OCR2A = 800 / STEPPER_MICROSTEPS;
+          #else
+            OCR2A = 254;
+          #endif
+      }
+      else //speed up again once new case is picked
+      {
+        // set compare match register - divide by microsteps to shorten step period
+          OCR2A = 170 / STEPPER_MICROSTEPS;
+      }
+		StepsToGo = StepsToGo - 1;
+	  }
+	  else{
+	    digitalWrite(g_FeederStepPin,LOW);
+	    StepToggle = 1;
+	  }
+	  
+	  
+  }
+  else
+  {
+  	digitalWrite(g_FeederStepPin,LOW);
+  	StepToggle = 1;
+  }
+
+}
 
 /*---------------------------------------------------------------------------*/
 /*! @brief      Main Loop.
@@ -372,11 +482,7 @@ void loop()
   static bool isSerialInterface = false;
   static bool start;
   static bool startPrev;
-  #ifdef MODE_KEY_USED
-  	static bool modeState = false; //single shot or free run mode - false = single shot
-  #else
-  	static bool modeState = true; //single shot or free run mode - true = free run
-  #endif
+  
   static bool modeKey;
   static bool modeKeyPrev;
   static bool upKey=0;
@@ -420,6 +526,11 @@ void loop()
     }
     else if (g_SystemState != STATE_COOLDOWN) //confirm it's not in cooldown mode
     { 
+      closeDropGate();
+      if(CurrentMode == MODE_AUTOMATIC)
+      {
+      	returnCaseFeederHome();
+      }
       updateSystemState(STATE_STOPPED);
     }
   }
@@ -444,22 +555,38 @@ void loop()
 	      {
 	        updateSystemState(STATE_STOPPED);
 	      }
-	      modeState = !modeState;
-	      if(modeState)
-	      {
-	        turnModeLedOn();
-	      }
-	      else
-	      {
-	        turnModeLedOff();
-	      }
-	    }
-	    modeKeyDuration = modeKeyDuration + 1;
-	    if (modeKeyDuration >= LONG_PRESS_HOLD_TIME) //long press
-	      {
-	        updateSystemState(STATE_SHOW_SOFTWARE_VER);
-	        modeKeyDuration = 0;
-	      }
+        else if (g_SystemState == STATE_STOPPED | g_SystemState == STATE_JUST_BOOTED)
+        {
+  	      if(CurrentMode == MODE_SINGLE_SHOT)
+  	      {
+  	        CurrentMode = MODE_FREE_RUN;
+            digitalWrite(g_FeederStepperEnPin,HIGH); //disable stepper driver in free run mode
+            turnModeLedOn();
+  	      }
+  	      else if(CurrentMode == MODE_FREE_RUN)
+  	      {
+            CurrentMode = MODE_AUTOMATIC;
+            digitalWrite(g_FeederStepperEnPin,LOW); //enable stepper driver in auto mode
+  	        turnModeLedOn();
+  	      }
+          else
+          {
+            CurrentMode = MODE_SINGLE_SHOT;
+            digitalWrite(g_FeederStepperEnPin,HIGH); //disable stepper driver in single shot mode
+            turnModeLedOff();
+          }
+        }
+      }
+	    if(g_SystemState == STATE_STOPPED | g_SystemState == STATE_JUST_BOOTED)
+        {
+          modeKeyDuration = modeKeyDuration + 1;
+          if (modeKeyDuration >= LONG_PRESS_HOLD_TIME) //long press
+            {
+              updateSystemState(STATE_SHOW_SOFTWARE_VER);
+              modeKeyDuration = 0;
+            }
+        }
+
     #else
       	openDropGate();
     #endif
@@ -536,21 +663,26 @@ void loop()
         display.setTextSize(2);
       }
       
-      if(modeState)
+      if(CurrentMode == MODE_FREE_RUN)
       {
          display.setCursor(70,8);
          display.setTextSize(1);
          display.println("FREE RUN");
-         //display.setCursor(105,24);
-         //display.print("RUN");
          display.setTextSize(2);
-         /*
-         display.setCursor(102,16);
+      }
+      else if(CurrentMode == MODE_AUTOMATIC)
+      {
+         display.setCursor(70,8);
          display.setTextSize(1);
-         display.print("FREE");
-         display.setCursor(105,24);
-         display.print("RUN");
-         display.setTextSize(2);*/
+         display.println("AUTO FEED");
+         display.setTextSize(2);
+      }
+      else if(CurrentMode == MODE_SINGLE_SHOT)
+      {
+         display.setCursor(70,8);
+         display.setTextSize(1);
+         display.println("ONE SHOT");
+         display.setTextSize(2);
       }
       display.drawLine(64,0,64,32,WHITE);
       display.display();
@@ -567,6 +699,10 @@ void loop()
       if (hasSystemStateChanged())
       {
         SystemTimeTarget = millis() + AnnealTime_ms;
+          if(CurrentMode == MODE_AUTOMATIC)
+          {
+            preloadCase();
+          }
       }
       updateSystemState(g_SystemState);
 
@@ -619,6 +755,10 @@ void loop()
     {
       if (hasSystemStateChanged())
       {
+        if(caseFeederStillMoving()) //case feeder is still moving so wait until it's finished moving before starting the drop sequence
+        {
+          break;
+        }
         SystemTimeTarget = millis() + DROP_TIME;
         sensors.requestTemperatures(); //this will take time. stick to 9 & 10 bit conversions.
       }      
@@ -640,13 +780,13 @@ void loop()
       {
         updateSystemState(STATE_COOLDOWN); //Too hot, go to cooldown state
       }
-      else if(modeState) //modestate bit will determine if we free run or go to stopped state
+      else if(CurrentMode == MODE_SINGLE_SHOT) //modestate bit will determine if we free run or go to stopped state
       {
-        updateSystemState(STATE_RELOADING);
+        updateSystemState(STATE_STOPPED);
       }
       else
       {
-        updateSystemState(STATE_STOPPED);
+        updateSystemState(STATE_RELOADING);
       }
     }
     break;
@@ -656,8 +796,14 @@ void loop()
       if (hasSystemStateChanged())
       {
         SystemTimeTarget = millis() + RELOAD_TIME; //load time to fit new case
+        if(CurrentMode == MODE_AUTOMATIC)
+        	{
+        		loadCase();
+            SystemTimeTarget = millis() + RELOAD_TIME_AUTO__FEED; //load time when in auto feed mode
+        	}
       }      
       updateSystemState(g_SystemState);
+      
 
       if (millis() < SystemTimeTarget)
       {
@@ -805,6 +951,10 @@ void loop()
   Serial.print("Loop Time Remaining : ");
   Serial.print(LoopStartTime + LOOP_TIME - millis());
   Serial.println("ms");
+  Serial.println(" ");
+
+  Serial.print("Step count : ");
+  Serial.print(StepsToGo);
   Serial.println(" ");
 
   #endif
@@ -969,4 +1119,51 @@ static uint16_t readPsuCurrent_ma(void)
     adc = 0;
   }
   return adc;
+}
+
+
+/*---------------------------------------------------------------------------*/
+/*! @brief      rotate case loader to preload position from home
+*//*-------------------------------------------------------------------------*/
+static void preloadCase(void)
+{
+	StepsToGo = StepsToGo + CASE_FEEDER_STEPS_DROP_TO_PRELOAD;
+	//enableStepperPulses(1);
+}
+
+/*---------------------------------------------------------------------------*/
+/*! @brief      rotate case loader to drop position
+*//*-------------------------------------------------------------------------*/
+static void loadCase(void)
+{
+	StepsToGo = StepsToGo + CASE_FEEDER_STEPS_PRELOAD_TO_DROP; //multiply by 2 for the 2 half cycles counted by the timer interrupt
+	//enableStepperPulses(1);
+}
+
+/*---------------------------------------------------------------------------*/
+/*! @brief      rotate case loader to home/park position from anywhere
+*//*-------------------------------------------------------------------------*/
+static void returnCaseFeederHome(void)
+{
+	if(StepsFromHome)
+		{
+			StepsToGo = STEPPER_STEPS_PER_TURN - StepsFromHome;
+		}
+	
+}
+
+/*---------------------------------------------------------------------------*/
+/*! @brief      is case feeder still moving?
+*//*-------------------------------------------------------------------------*/
+static bool caseFeederStillMoving(void)
+{
+  if(StepsToGo)
+    {
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+  
 }
