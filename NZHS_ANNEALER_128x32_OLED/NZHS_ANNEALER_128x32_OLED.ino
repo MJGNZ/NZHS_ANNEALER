@@ -24,7 +24,7 @@
 //                        | | | 
 //                        | | | 
 //                        | | | 
-#define SOFTWARE_VERSION "3.0.0"
+#define SOFTWARE_VERSION "3.2.0"
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -43,12 +43,13 @@
 #define DISPLAY_ADDRESS 0x3C
 #define SERVO_OPEN_POSITION 5  //timer load value for servo pulse. 128us per timer count. 7 => 0.89ms pulse
 #define SERVO_CLOSE_POSITION 15 // 15 => 1.92ms pulse
-#define STEPPER_STEPS_PER_TURN 200*STEPPER_MICROSTEPS // stepper motor steps per revolution (e.g. 200 step motor) * microsteps.
+#define STEPPER_SCALING_FACTOR 1 //1.28 //Used to compensate for BIGTREETECH controllers needing 256 steps per rev
+#define STEPPER_STEPS_PER_TURN 200*STEPPER_SCALING_FACTOR*STEPPER_MICROSTEPS // stepper motor steps per revolution (e.g. 200 step motor) * microsteps.
 #define STEPPER_MICROSTEPS 16 // number of microsteps. set to 1 if no microstepping
-#define CASE_FEEDER_STEPS_DROP_TO_PRELOAD 185*STEPPER_MICROSTEPS
-#define CASE_FEEDER_STEPS_PRELOAD_TO_DROP (STEPPER_STEPS_PER_TURN - CASE_FEEDER_STEPS_DROP_TO_PRELOAD)
-#define CASE_FEEDER_HOPPER_START 70*STEPPER_MICROSTEPS
-#define CASE_FEEDER_HOPPER_END 130*STEPPER_MICROSTEPS
+#define CASE_FEEDER_STEPS_DROP_TO_PRELOAD 185*STEPPER_MICROSTEPS*STEPPER_SCALING_FACTOR
+#define CASE_FEEDER_STEPS_PRELOAD_TO_DROP (STEPPER_STEPS_PER_TURN - CASE_FEEDER_STEPS_DROP_TO_PRELOAD + 1)
+#define CASE_FEEDER_HOPPER_START 70*STEPPER_MICROSTEPS*STEPPER_SCALING_FACTOR
+#define CASE_FEEDER_HOPPER_END 130*STEPPER_MICROSTEPS*STEPPER_SCALING_FACTOR
 #define MODE_KEY_USED  //defines the use of the mode key input. comment out this #define to disable mode selection and reassign the mode key input to force case drop in the event of a stuck case
 
 // temp sensor pin asignment DS1820
@@ -73,6 +74,7 @@ static bool StepToggle = 0;
 typedef enum tStateMachineStates
 {
   STATE_STOPPED = 0, 
+  STATE_PRELOAD,
   STATE_ANNEALING,
   STATE_DROPPING,
   STATE_RELOADING,
@@ -436,8 +438,11 @@ ISR(TIMER2_COMPA_vect){//timer2 interrupt
       if(StepsFromHome < CASE_FEEDER_HOPPER_START) //move feed wheel quickly to pick the next case
       {
           // set compare match register - divide by microsteps to shorten step period
-
-          OCR2A = 120 / STEPPER_MICROSTEPS;
+          #ifdef STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
+            OCR2A = 120 / STEPPER_MICROSTEPS;
+          #else
+            OCR2A = 170;
+          #endif
 
       }
       else if(StepsFromHome < CASE_FEEDER_HOPPER_END) //slow down the feed wheel while picking the case for more reliable pickups
@@ -500,6 +505,7 @@ void loop()
   static float temperature = 0;
   static float temperaturePrev = 0;
   static bool Just_Booted = 1;
+  static bool Next_Cycle_Is_STOPPED = 0;
 
   //boot the watchdog
   wdt_reset();
@@ -518,20 +524,29 @@ void loop()
         updateSystemState(STATE_SHOW_WARNING);
         Just_Booted = 0;
       }
+      else if (CurrentMode == MODE_AUTOMATIC)
+      {
+        updateSystemState(STATE_ANNEALING); //STATE_PRELOAD
+      }
       else
       {
         updateSystemState(STATE_ANNEALING);
       }
-      
+    }
+    else if(g_SystemState == STATE_SHOW_WARNING)
+    {
+      updateSystemState(STATE_STOPPED);
     }
     else if (g_SystemState != STATE_COOLDOWN) //confirm it's not in cooldown mode
     { 
-      closeDropGate();
+      Next_Cycle_Is_STOPPED = 1;
+      /*closeDropGate();
       if(CurrentMode == MODE_AUTOMATIC)
       {
       	returnCaseFeederHome();
       }
       updateSystemState(STATE_STOPPED);
+      */
     }
   }
 
@@ -706,6 +721,9 @@ void loop()
       }
       updateSystemState(g_SystemState);
 
+      turnStartStopLedOn();
+      turnAnnealerOn();
+
       psuCurrent_ma = readPsuCurrent_ma();
       if(CurrentSensorPresent)
       {
@@ -737,8 +755,8 @@ void loop()
         display.display();
       }
 
-      turnStartStopLedOn();
-      turnAnnealerOn();
+      //turnStartStopLedOn();
+      //turnAnnealerOn();
       cooling_timer = COOLDOWN_PERIOD + millis(); // 5 minute cooldown after last anneal
       if (millis() < SystemTimeTarget)
       {
@@ -780,6 +798,16 @@ void loop()
       {
         updateSystemState(STATE_COOLDOWN); //Too hot, go to cooldown state
       }
+
+      if(Next_Cycle_Is_STOPPED)
+      {
+        updateSystemState(STATE_STOPPED);
+        Next_Cycle_Is_STOPPED = 0;
+        if(CurrentMode == MODE_AUTOMATIC)
+        {
+          returnCaseFeederHome();
+        }
+      }
       else if(CurrentMode == MODE_SINGLE_SHOT) //modestate bit will determine if we free run or go to stopped state
       {
         updateSystemState(STATE_STOPPED);
@@ -788,6 +816,21 @@ void loop()
       {
         updateSystemState(STATE_RELOADING);
       }
+    }
+    break;
+
+    case STATE_PRELOAD:
+    { 
+      if (hasSystemStateChanged())
+      {
+        preloadCase(); //pick up first case after start button is pressed
+      }
+      updateSystemState(g_SystemState);
+      if(caseFeederStillMoving()) //case feeder is still moving so wait until it's finished moving before starting the drop sequence
+        {
+          break;
+        }
+      updateSystemState(STATE_RELOADING);
     }
     break;
 
