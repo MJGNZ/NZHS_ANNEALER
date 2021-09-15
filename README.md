@@ -6,6 +6,10 @@ Ref doc available here:
 Annealer build and use guide
 http://www.mgnz-makes.com/
 
+SW version 3.3.0
+- Bug fix for stepper interrupt duration
+- Improvement to Anneal timing precision and repeatabilty
+
 SW version 3.2.0
 - Resolved bugs relating to stepper motor drifting after multiple cases
 - UI cleanup
