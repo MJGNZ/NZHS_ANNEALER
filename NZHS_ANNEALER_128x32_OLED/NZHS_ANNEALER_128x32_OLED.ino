@@ -24,7 +24,7 @@
 //                        | | | 
 //                        | | | 
 //                        | | | 
-#define SOFTWARE_VERSION "3.2.0"
+#define SOFTWARE_VERSION "3.3.0"
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -69,6 +69,7 @@ static uint16_t psuCurrentZeroOffset = 0;
 static uint16_t StepsToGo = 0;
 static uint16_t StepsFromHome = 0;
 static bool StepToggle = 0;
+static uint32_t SystemTimeTarget;
 
 //--define state machine states-----------------------------------------------------------
 typedef enum tStateMachineStates
@@ -284,6 +285,7 @@ static void preloadCase(void);
 static void loadCase(void);
 static void returnCaseFeederHome(void);
 static bool caseFeederStillMoving(void);
+static float readTemperature(uint8_t);
 
 /*---------------------------------------------------------------------------*/
 /*! @brief      Initialize the Case Annealer.
@@ -302,7 +304,7 @@ void setup()
   TCCR2B = 0;// same for TCCR2B
   TCNT2  = 0;//initialize counter value to 0
   // set compare match register - divide by microsteps to shorten step period
-  OCR2A = 170 / STEPPER_MICROSTEPS; //250
+  OCR2A = 170 / STEPPER_MICROSTEPS;
   // turn on CTC mode
   TCCR2A |= (1 << WGM21);
   // Set CS20-22 bit for prescaler
@@ -326,7 +328,7 @@ void setup()
   pinMode(g_FeederDirPin,OUTPUT);
   pinMode(g_FeederStepperEnPin,OUTPUT);
   digitalWrite(g_FeederDirPin,HIGH);
-  digitalWrite(g_FeederStepperEnPin,HIGH); //disable stepper driver
+  digitalWrite(g_FeederStepperEnPin,LOW); //disable stepper driver
   closeDropGate();
   turnStartStopLedOff();  
   turnModeLedOff();
@@ -334,7 +336,7 @@ void setup()
   turnCoolingFanOff();
   closeDropGate(); 
   #ifdef DEBUG
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(20);
   Serial.println("Debug active.");
   #endif
@@ -410,8 +412,10 @@ void setup()
   sensors.setResolution(tempDeviceAddress, TEMP_RESOLUTION);
   sensors.requestTemperatures();
   sensors.setWaitForConversion(false);
+  delay(TEMP_CONVERSION_TIME); // let the first temp read happen
   //setup the watchdog timer. it needs a boot every 500ms.
   wdt_enable(WDTO_500MS);
+  digitalWrite(g_FeederStepperEnPin,HIGH); //disable stepper driver
 }
 /*---------------------------------------------------------------------------*/
 /*! @brief      Timer2 ISR
@@ -438,7 +442,7 @@ ISR(TIMER2_COMPA_vect){//timer2 interrupt
       if(StepsFromHome < CASE_FEEDER_HOPPER_START) //move feed wheel quickly to pick the next case
       {
           // set compare match register - divide by microsteps to shorten step period
-          #ifdef STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
+          #if STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
             OCR2A = 120 / STEPPER_MICROSTEPS;
           #else
             OCR2A = 170;
@@ -448,7 +452,7 @@ ISR(TIMER2_COMPA_vect){//timer2 interrupt
       else if(StepsFromHome < CASE_FEEDER_HOPPER_END) //slow down the feed wheel while picking the case for more reliable pickups
       {
           // set compare match register - divide by microsteps to shorten step period
-          #ifdef STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
+          #if STEPPER_MICROSTEPS >= 4 //check we arent going to overflow the 8 bit timer register
             OCR2A = 800 / STEPPER_MICROSTEPS;
           #else
             OCR2A = 254;
@@ -465,13 +469,16 @@ ISR(TIMER2_COMPA_vect){//timer2 interrupt
 	    digitalWrite(g_FeederStepPin,LOW);
 	    StepToggle = 1;
 	  }
-	  
-	  
   }
   else
   {
   	digitalWrite(g_FeederStepPin,LOW);
   	StepToggle = 1;
+  }
+
+  if ((g_SystemState == STATE_ANNEALING) && (millis() >= SystemTimeTarget))
+  {
+    turnAnnealerOff();
   }
 
 }
@@ -500,10 +507,8 @@ void loop()
   static uint16_t psuCurrent_ma;
   static uint16_t AnnealTime_ms = EEPROM.read(0)*100; //reload last used anneal time
   static uint32_t cooling_timer = 0;
-  static uint32_t SystemTimeTarget;
   static uint32_t LoopStartTime;
   static float temperature = 0;
-  static float temperaturePrev = 0;
   static bool Just_Booted = 1;
   static bool Next_Cycle_Is_STOPPED = 0;
 
@@ -514,6 +519,11 @@ void loop()
   start = readStartButton();
   modeKey = readModeButton();
   upKey = readUpButton();
+
+  temperature = readTemperature(0);
+
+  /*temperature = sensors.getTempCByIndex(0);
+  sensors.requestTemperatures(); // this takes quite some time to complete ~90ms or longer. read it on the next loop*/
    
   if (start && !startPrev) //Start key pressed?
   {
@@ -566,11 +576,11 @@ void loop()
   	#ifdef MODE_KEY_USED
 	    if (!modeKeyPrev) //mode key just pressed?
 	    {
-	      if (g_SystemState == STATE_SHOW_SOFTWARE_VER | g_SystemState == STATE_OVERCURRENT_WARNING)
+	      if (g_SystemState == STATE_SHOW_SOFTWARE_VER || g_SystemState == STATE_OVERCURRENT_WARNING)
 	      {
 	        updateSystemState(STATE_STOPPED);
 	      }
-        else if (g_SystemState == STATE_STOPPED | g_SystemState == STATE_JUST_BOOTED)
+        else if (g_SystemState == STATE_STOPPED || g_SystemState == STATE_JUST_BOOTED)
         {
   	      if(CurrentMode == MODE_SINGLE_SHOT)
   	      {
@@ -608,7 +618,7 @@ void loop()
   }
 
 
-  switch (g_SystemState) //State machine. spend as little time in here as possible.
+  switch (g_SystemState) //State machine.
   {
     case STATE_STOPPED:
     {
@@ -637,13 +647,6 @@ void loop()
         upKeyDuration = 0;
         annealTimeChanged = true;
       }
-
-      if (millis() > SystemTimeTarget) //wait for conversion time
-      {
-        SystemTimeTarget = millis() + 3000;
-        temperature = sensors.getTempCByIndex(0);
-        sensors.requestTemperatures();
-      }
       
       display.clearDisplay();
       display.setCursor(0, 0);
@@ -655,9 +658,6 @@ void loop()
          display.setTextSize(1);
          display.println("FAN ON");
          display.setTextSize(2);
-         /*display.setCursor(108,8);
-         display.println("ON");
-         display.setTextSize(2);*/
       }
       else
       {
@@ -703,7 +703,6 @@ void loop()
       display.display();
       turnStartStopLedOff();  
       turnAnnealerOff();     
-      //closeDropGate();
       psuCurrent_ma = readPsuCurrent_ma(); //--------- added this
       updateSystemState(STATE_STOPPED);
     }
@@ -714,6 +713,9 @@ void loop()
       if (hasSystemStateChanged())
       {
         SystemTimeTarget = millis() + AnnealTime_ms;
+        turnStartStopLedOn();
+        turnAnnealerOn();
+        cooling_timer = COOLDOWN_PERIOD + millis(); // 5 minute cooldown after last anneal
           if(CurrentMode == MODE_AUTOMATIC)
           {
             preloadCase();
@@ -721,8 +723,12 @@ void loop()
       }
       updateSystemState(g_SystemState);
 
-      turnStartStopLedOn();
-      turnAnnealerOn();
+      if (millis() > SystemTimeTarget)
+      {
+        turnAnnealerOff();
+        openDropGate();
+        updateSystemState(STATE_DROPPING);
+      }
 
       psuCurrent_ma = readPsuCurrent_ma();
       if(CurrentSensorPresent)
@@ -755,17 +761,7 @@ void loop()
         display.display();
       }
 
-      //turnStartStopLedOn();
-      //turnAnnealerOn();
-      cooling_timer = COOLDOWN_PERIOD + millis(); // 5 minute cooldown after last anneal
-      if (millis() < SystemTimeTarget)
-      {
-        break;
-      }
       
-      turnAnnealerOff();
-      openDropGate();
-      updateSystemState(STATE_DROPPING);
     }
     break;    
 
@@ -778,7 +774,6 @@ void loop()
           break;
         }
         SystemTimeTarget = millis() + DROP_TIME;
-        sensors.requestTemperatures(); //this will take time. stick to 9 & 10 bit conversions.
       }      
       updateSystemState(g_SystemState);
 
@@ -790,16 +785,17 @@ void loop()
         display.display();
         break;
       }
-      temperaturePrev = temperature;
-      temperature = sensors.getTempCByIndex(0);
       closeDropGate();
 
-      if((temperature > TEMP_LIMIT) && (temperaturePrev > TEMP_LIMIT))
+      if(temperature > TEMP_LIMIT)
       {
         updateSystemState(STATE_COOLDOWN); //Too hot, go to cooldown state
+        if(CurrentMode == MODE_AUTOMATIC)
+        {
+          returnCaseFeederHome();
+        }
       }
-
-      if(Next_Cycle_Is_STOPPED)
+      else if(Next_Cycle_Is_STOPPED)
       {
         updateSystemState(STATE_STOPPED);
         Next_Cycle_Is_STOPPED = 0;
@@ -928,16 +924,7 @@ void loop()
       display.print((char)248);
       display.print("C"); 
       display.display();
-
-      if (millis() < SystemTimeTarget) //wait for conversion time
-      {
-        break;
-      }
-      temperaturePrev = temperature;
-      temperature = sensors.getTempCByIndex(0);
-      sensors.requestTemperatures();
-      SystemTimeTarget = millis() + TEMP_CONVERSION_TIME; //time for temp conversion
-      if((temperature < (TEMP_LIMIT - TEMP_HYSTERESIS)) && (temperaturePrev < (TEMP_LIMIT - TEMP_HYSTERESIS))) //has it cooled enough to resume?
+      if(temperature < (TEMP_LIMIT - TEMP_HYSTERESIS)) //has it cooled enough to resume?
       {
         updateSystemState(STATE_STOPPED);
       }
@@ -946,7 +933,7 @@ void loop()
     break;
     case STATE_JUST_BOOTED:
     {
-      temperature = sensors.getTempCByIndex(0);
+      //temperature = sensors.getTempCByIndex(0);
       if(temperature> TEMP_LIMIT)
       {
         updateSystemState(STATE_COOLDOWN);
@@ -981,29 +968,34 @@ void loop()
 
   #ifdef DEBUG
 
-  Serial.print("Annealer current : ");
+  Serial.print("Annealer current;");
   Serial.print(psuCurrent_ma/1000,DEC); 
   Serial.print(".");
   Serial.print((psuCurrent_ma%1000)/100, DEC);
-  Serial.println("A");
+  Serial.print(";A;");
 
-  Serial.print("Anneal Time : ");
+  Serial.print("Anneal Time;");
   Serial.print(AnnealTime_ms);
-  Serial.println("ms");
+  Serial.print(";ms;");
 
-  Serial.print("Loop Time Remaining : ");
+  Serial.print("Loop Time Remaining;");
   Serial.print(LoopStartTime + LOOP_TIME - millis());
-  Serial.println("ms");
-  Serial.println(" ");
+  Serial.print(";ms;");
 
-  Serial.print("Step count : ");
+  Serial.print("Step count;");
   Serial.print(StepsToGo);
-  Serial.println(" ");
+  Serial.print(";");
+
+  Serial.print("State;");
+  Serial.print(g_SystemState);
+  Serial.println(";");
 
   #endif
-  
+
+
   while(LoopStartTime + LOOP_TIME > millis()) // wait for the loop time to expire
   {
+
       if((millis() & 0x00003FFF == 0x00003FFF) && (annealTimeChanged == true)) // write to EEPROM every ~16 seconds only if anneal time has changed
       {
         EEPROM.write(0,AnnealTime_ms/100);
@@ -1210,3 +1202,16 @@ static bool caseFeederStillMoving(void)
     }
   
 }
+
+/*---------------------------------------------------------------------------*/
+/*! @brief      is case feeder still moving?
+*//*-------------------------------------------------------------------------*/
+static float readTemperature(uint8_t index)
+{
+  float t = sensors.getTempCByIndex(index);
+  sensors.requestTemperatures(); // this takes quite some time to complete ~90ms or longer. read it on the next loop
+  return t;
+}
+
+
+
