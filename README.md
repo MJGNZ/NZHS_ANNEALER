@@ -6,6 +6,10 @@ Ref doc available here:
 Annealer build and use guide
 http://www.mgnz-makes.com/
 
+SW version 3.2.0
+- Resolved bugs relating to stepper motor drifting after multiple cases
+- UI cleanup
+
 SW version v3.0.0
 - Support for REV C hardware with stepper motor control for automatic case feeder
 - v3.0.0 software is backward compatible with REV A & REV B hardware
