@@ -12,19 +12,19 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <EEPROM.h>
-#include <OneWire.h> 
+#include <OneWire.h>
 #include <DallasTemperature.h>
 
 //-- macros---------------------------------------------------------------
 //#define DEBUG //defining DEBUG will remove the splash screen and enable serial debug info
 #define SERVO
-//                        Major Version
-//                        | Minor Version
-//                        | | LCD Type
-//                        | | | 
-//                        | | | 
-//                        | | | 
-#define SOFTWARE_VERSION "3.3.0"
+//                          Major Version
+//                          | Minor Version
+//                          | | LCD Type
+//                          | | |
+//                          | | |
+//                          | | |
+#define SOFTWARE_VERSION F("3.3.1")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -56,9 +56,9 @@
 #define ONE_WIRE_BUS 8
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1, 100000, 100000);
-// Setup a oneWire instance to communicate with any OneWire devices  
-OneWire oneWire(ONE_WIRE_BUS); 
-// Pass our oneWire reference to Dallas Temperature. 
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
+// Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
 // Global variables :(
@@ -74,7 +74,7 @@ static uint32_t SystemTimeTarget;
 //--define state machine states-----------------------------------------------------------
 typedef enum tStateMachineStates
 {
-  STATE_STOPPED = 0, 
+  STATE_STOPPED = 0,
   STATE_PRELOAD,
   STATE_ANNEALING,
   STATE_DROPPING,
@@ -89,7 +89,7 @@ typedef enum tStateMachineStates
 
 typedef enum ModeList
 {
-  MODE_SINGLE_SHOT = 0, 
+  MODE_SINGLE_SHOT = 0,
   MODE_FREE_RUN,
   MODE_AUTOMATIC,
 } ModeList;
@@ -308,8 +308,8 @@ void setup()
   // turn on CTC mode
   TCCR2A |= (1 << WGM21);
   // Set CS20-22 bit for prescaler
-  TCCR2B |= (1 << CS22);   
-  TCCR2B |= (1 << CS21); 
+  TCCR2B |= (1 << CS22);
+  TCCR2B |= (1 << CS21);
 
   // enable timer compare interrupt
   TIMSK2 |= (1 << OCIE2A);
@@ -330,43 +330,43 @@ void setup()
   digitalWrite(g_FeederDirPin,HIGH);
   digitalWrite(g_FeederStepperEnPin,LOW); //disable stepper driver
   closeDropGate();
-  turnStartStopLedOff();  
+  turnStartStopLedOff();
   turnModeLedOff();
-  turnAnnealerOff();     
+  turnAnnealerOff();
   turnCoolingFanOff();
-  closeDropGate(); 
+  closeDropGate();
   #ifdef DEBUG
   Serial.begin(115200);
   delay(20);
-  Serial.println("Debug active.");
+  Serial.println(F("Debug active."));
   #endif
 
   delay(200);
-  
+
   display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDRESS);
-  
+
   display.clearDisplay();
   // Setup text and draw splash screen
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.setCursor(0, 0);
-  
+
   #ifndef DEBUG //dont do the splash startup in debug
     display.drawBitmap(0, 0,  anneallogo, 128, 32, 1);
     display.display();
     delay(2000);
-    display.clearDisplay(); 
+    display.clearDisplay();
     display.drawBitmap(0, 0,  anneallogo2, 128, 32, 1);
     display.display();
     delay(2000);
 
     for(uint8_t i = 0; i <= 20; i++)
     {
-      display.clearDisplay(); 
+      display.clearDisplay();
       display.drawBitmap(0, 0,  projectile, 128, 32, 1);
       display.display();
       delay(100);
-      display.clearDisplay(); 
+      display.clearDisplay();
       display.drawBitmap(0, 0,  projectile2, 128, 32, 1);
       display.display();
       delay(100);
@@ -374,7 +374,7 @@ void setup()
   #else
     delay(2000);
   #endif
-  display.clearDisplay(); 
+  display.clearDisplay();
   //Setup temp sensor and read 1-wire address. initiate first temp reading
   sensors.begin();
 
@@ -391,21 +391,21 @@ void setup()
   }
 
   #ifdef DEBUG
-  Serial.print("Software Version : ");
+  Serial.print(F("Software Version : "));
   Serial.println(SOFTWARE_VERSION);
-  Serial.print("Number of Dallas temp sensors found : ");
+  Serial.print(F("Number of Dallas temp sensors found : "));
   Serial.println(sensors.getDeviceCount());
-  Serial.print("Current sensors found : ");
+  Serial.print(F("Current sensors found : "));
   Serial.println(CurrentSensorPresent);
-  Serial.print("Drop gate control : ");
+  Serial.print(F("Drop gate control : "));
   #ifdef SERVO
-    Serial.println("Servo");
+    Serial.println(F("Servo"));
   #else
-    Serial.println("Solenoid");
+    Serial.println(F("Solenoid"));
   #endif
-  Serial.print("PSU Current zero offset : ");
+  Serial.print(F("PSU Current zero offset : "));
   Serial.println(psuCurrentZeroOffset);
-  Serial.print("\n\n\n");
+  Serial.print(F("\n\n\n"));
   #endif
 
   sensors.getAddress(tempDeviceAddress, 0);
@@ -424,7 +424,7 @@ void setup()
   @return       Never.
 *//*-------------------------------------------------------------------------*/
 
-ISR(TIMER2_COMPA_vect){//timer2 interrupt 
+ISR(TIMER2_COMPA_vect){//timer2 interrupt
   if(StepsToGo)
 	  {
 	  if (StepToggle)
@@ -494,7 +494,7 @@ void loop()
   static bool isSerialInterface = false;
   static bool start;
   static bool startPrev;
-  
+
   static bool modeKey;
   static bool modeKeyPrev;
   static bool upKey=0;
@@ -524,11 +524,11 @@ void loop()
 
   /*temperature = sensors.getTempCByIndex(0);
   sensors.requestTemperatures(); // this takes quite some time to complete ~90ms or longer. read it on the next loop*/
-   
+
   if (start && !startPrev) //Start key pressed?
   {
     if (g_SystemState == STATE_STOPPED)
-    { 
+    {
       if(Just_Booted) //Show the warning screen to set the right case heigth and time 1st time
       {
         updateSystemState(STATE_SHOW_WARNING);
@@ -548,7 +548,7 @@ void loop()
       updateSystemState(STATE_STOPPED);
     }
     else if (g_SystemState != STATE_COOLDOWN) //confirm it's not in cooldown mode
-    { 
+    {
       Next_Cycle_Is_STOPPED = 1;
       /*closeDropGate();
       if(CurrentMode == MODE_AUTOMATIC)
@@ -647,67 +647,67 @@ void loop()
         upKeyDuration = 0;
         annealTimeChanged = true;
       }
-      
+
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.print("TIME");
-      
+      display.print(F("TIME"));
+
       if(FanIsOn)
       {
          display.setCursor(70,0);
          display.setTextSize(1);
-         display.println("FAN ON");
+         display.println(F("FAN ON"));
          display.setTextSize(2);
       }
       else
       {
-        display.println(" ");
+        display.println(F(" "));
       }
       display.setCursor(0,16);
-      display.print(AnnealTime_ms/1000, DEC); 
-      display.print("."); 
+      display.print(AnnealTime_ms/1000, DEC);
+      display.print(F("."));
       display.print((AnnealTime_ms%1000)/100, DEC);
-      display.print("s"); 
+      display.print(F("s"));
       display.setCursor(70,24);
       if(NumberDallasTempDevices != 0)
       {
         display.setTextSize(1);
-        display.print(temperature, 1); 
-        display.print((char)248);
-        display.print("C");
+        display.print(temperature, 1);
+        display.print((char PROGMEM)248);
+        display.print(F("C"));
         display.setTextSize(2);
       }
-      
+
       if(CurrentMode == MODE_FREE_RUN)
       {
          display.setCursor(70,8);
          display.setTextSize(1);
-         display.println("FREE RUN");
+         display.println(F("FREE RUN"));
          display.setTextSize(2);
       }
       else if(CurrentMode == MODE_AUTOMATIC)
       {
          display.setCursor(70,8);
          display.setTextSize(1);
-         display.println("AUTO FEED");
+         display.println(F("AUTO FEED"));
          display.setTextSize(2);
       }
       else if(CurrentMode == MODE_SINGLE_SHOT)
       {
          display.setCursor(70,8);
          display.setTextSize(1);
-         display.println("ONE SHOT");
+         display.println(F("ONE SHOT"));
          display.setTextSize(2);
       }
       display.drawLine(64,0,64,32,WHITE);
       display.display();
-      turnStartStopLedOff();  
-      turnAnnealerOff();     
+      turnStartStopLedOff();
+      turnAnnealerOff();
       psuCurrent_ma = readPsuCurrent_ma(); //--------- added this
       updateSystemState(STATE_STOPPED);
     }
     break;
-    
+
     case STATE_ANNEALING:
     {
       if (hasSystemStateChanged())
@@ -733,7 +733,7 @@ void loop()
       psuCurrent_ma = readPsuCurrent_ma();
       if(CurrentSensorPresent)
       {
-        if(psuCurrent_ma >= PSU_OVERCURRENT) //overloaded the PSU - may damage the ZVS converter 
+        if(psuCurrent_ma >= PSU_OVERCURRENT) //overloaded the PSU - may damage the ZVS converter
         {
           turnAnnealerOff();
           turnStartStopLedOff();
@@ -741,29 +741,29 @@ void loop()
           break;
         }
       }
-      
+
       if((SystemTimeTarget - millis()) < 100000)
       {
         display.clearDisplay();
         display.setCursor(0, 0);
-        display.println("ANNEALING");
+        display.println(F("ANNEALING"));
         if(CurrentSensorPresent)
         {
-          display.print(psuCurrent_ma/1000,DEC); 
-          display.print("."); 
+          display.print(psuCurrent_ma/1000,DEC);
+          display.print(F("."));
           display.print((psuCurrent_ma%1000)/100, DEC);
-          display.print("A  "); 
+          display.print(F("A  "));
         }
-        display.print((SystemTimeTarget - millis())/1000, DEC); 
-        display.print("."); 
-        display.print(((SystemTimeTarget - millis())%1000)/100, DEC); 
-        display.print("s");
+        display.print((SystemTimeTarget - millis())/1000, DEC);
+        display.print(F("."));
+        display.print(((SystemTimeTarget - millis())%1000)/100, DEC);
+        display.print(F("s"));
         display.display();
       }
 
-      
+
     }
-    break;    
+    break;
 
     case STATE_DROPPING:
     {
@@ -774,14 +774,14 @@ void loop()
           break;
         }
         SystemTimeTarget = millis() + DROP_TIME;
-      }      
+      }
       updateSystemState(g_SystemState);
 
       if (millis() < SystemTimeTarget) // wait time is not up, break.
       {
         display.clearDisplay();
         display.setCursor(15, 8);
-        display.println("DROPPING");
+        display.println(F("DROPPING"));
         display.display();
         break;
       }
@@ -816,7 +816,7 @@ void loop()
     break;
 
     case STATE_PRELOAD:
-    { 
+    {
       if (hasSystemStateChanged())
       {
         preloadCase(); //pick up first case after start button is pressed
@@ -840,19 +840,19 @@ void loop()
         		loadCase();
             SystemTimeTarget = millis() + RELOAD_TIME_AUTO__FEED; //load time when in auto feed mode
         	}
-      }      
+      }
       updateSystemState(g_SystemState);
-      
+
 
       if (millis() < SystemTimeTarget)
       {
         display.clearDisplay();
         display.setCursor(0, 0);
-        display.println("LOADING");
-        display.print((SystemTimeTarget - millis())/1000, DEC); 
-        display.print("."); 
-        display.print(((SystemTimeTarget - millis())%1000)/100, DEC); 
-        display.print("s"); 
+        display.println(F("LOADING"));
+        display.print((SystemTimeTarget - millis())/1000, DEC);
+        display.print(".");
+        display.print(((SystemTimeTarget - millis())%1000)/100, DEC);
+        display.print("s");
         display.display();
         break;
       }
@@ -861,47 +861,47 @@ void loop()
     break;
 
     case STATE_SHOW_WARNING:
-    {   
+    {
       updateSystemState(g_SystemState);
 
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.print("TIME"); 
+      display.print(F("TIME"));
       display.setTextSize(1);
-      display.print(" & ");
+      display.print(F(" & "));
       display.setTextSize(2);
-      display.println("CASE");
-      display.println("HEIGHT OK?"); 
+      display.println(F("CASE"));
+      display.println(F("HEIGHT OK?"));
       display.display();
 
     }
     break;
 
     case STATE_OVERCURRENT_WARNING:
-    {   
+    {
       updateSystemState(g_SystemState);
 
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.println("! FAULT !"); 
-      display.println("CHECK COIL"); 
+      display.println(F("! FAULT !"));
+      display.println(F("CHECK COIL"));
       display.display();
 
     }
     break;
 
     case STATE_SHOW_SOFTWARE_VER:
-    {   
+    {
       updateSystemState(g_SystemState);
       display.setTextSize(1);
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.print("SW VER : "); 
-      display.println(SOFTWARE_VERSION); 
-      display.print("Temp sensor : ");
+      display.print(F("SW VER : "));
+      display.println(SOFTWARE_VERSION);
+      display.print(F("Temp sensor : "));
       display.println(sensors.getDeviceCount());
-      display.print("Current sensor : ");
-      display.println(CurrentSensorPresent); 
+      display.print(F("Current sensor : "));
+      display.println(CurrentSensorPresent);
       display.setTextSize(2);
       display.display();
     }
@@ -912,17 +912,17 @@ void loop()
       if (hasSystemStateChanged())
       {
         SystemTimeTarget = millis() + TEMP_CONVERSION_TIME; //time for temp conversion
-        turnStartStopLedOff(); 
-      }      
+        turnStartStopLedOff();
+      }
       updateSystemState(g_SystemState);
-      
+
       cooling_timer = COOLDOWN_PERIOD + millis(); //keep resetting fan timer while in cooldown mode
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.println("COOLDOWN: "); 
-      display.print(temperature, 1); 
-      display.print((char)248);
-      display.print("C"); 
+      display.println(F("COOLDOWN: "));
+      display.print(temperature, 1);
+      display.print((char PROGMEM)248);
+      display.print(F("C"));
       display.display();
       if(temperature < (TEMP_LIMIT - TEMP_HYSTERESIS)) //has it cooled enough to resume?
       {
@@ -951,10 +951,10 @@ void loop()
       updateSystemState(STATE_STOPPED);
     }
   }
-  startPrev = start;  
+  startPrev = start;
   modeKeyPrev = modeKey;
   upKeyPrev = upKey;
-  
+
   if(cooling_timer > millis())
   {
     turnCoolingFanOn();
@@ -968,27 +968,27 @@ void loop()
 
   #ifdef DEBUG
 
-  Serial.print("Annealer current;");
-  Serial.print(psuCurrent_ma/1000,DEC); 
-  Serial.print(".");
+  Serial.print(F("Annealer current;"));
+  Serial.print(psuCurrent_ma/1000,DEC);
+  Serial.print(F("."));
   Serial.print((psuCurrent_ma%1000)/100, DEC);
-  Serial.print(";A;");
+  Serial.print(F(";A;"));
 
-  Serial.print("Anneal Time;");
+  Serial.print(F("Anneal Time;"));
   Serial.print(AnnealTime_ms);
-  Serial.print(";ms;");
+  Serial.print(F(";ms;"));
 
-  Serial.print("Loop Time Remaining;");
+  Serial.print(F("Loop Time Remaining;"));
   Serial.print(LoopStartTime + LOOP_TIME - millis());
-  Serial.print(";ms;");
+  Serial.print(F(";ms;"));
 
   Serial.print("Step count;");
   Serial.print(StepsToGo);
-  Serial.print(";");
+  Serial.print(F(";"));
 
-  Serial.print("State;");
+  Serial.print(F("State;"));
   Serial.print(g_SystemState);
-  Serial.println(";");
+  Serial.println(F(";"));
 
   #endif
 
@@ -1149,7 +1149,7 @@ static uint16_t readPsuCurrent_ma(void)
 
   adc = analogRead(g_PsuCurrentAdcPin);
   adc = abs(adc - psuCurrentZeroOffset)*39; //2.5V offset scale=2.5V/20A
-  if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes 
+  if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes
   {
     adc = 0;
   }
@@ -1184,7 +1184,7 @@ static void returnCaseFeederHome(void)
 		{
 			StepsToGo = STEPPER_STEPS_PER_TURN - StepsFromHome;
 		}
-	
+
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1200,7 +1200,7 @@ static bool caseFeederStillMoving(void)
     {
       return false;
     }
-  
+
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1212,6 +1212,3 @@ static float readTemperature(uint8_t index)
   sensors.requestTemperatures(); // this takes quite some time to complete ~90ms or longer. read it on the next loop
   return t;
 }
-
-
-
