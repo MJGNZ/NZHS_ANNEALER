@@ -24,7 +24,7 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.4.0")
+#define SOFTWARE_VERSION F("3.5.0")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -1149,7 +1149,7 @@ static uint16_t readPsuCurrent_ma(void)
   uint16_t adc = 0;
 
   adc = analogRead(g_PsuCurrentAdcPin);
-  adc = abs(adc - psuCurrentZeroOffset)*39; //2.5V offset scale=2.5V/20A
+  adc = abs(adc - psuCurrentZeroOffset)*49; //2.5V offset scale=100mV/A
   if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes
 
   {
