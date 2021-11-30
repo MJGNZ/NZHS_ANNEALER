@@ -24,10 +24,11 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.3.1")
+#define SOFTWARE_VERSION F("3.4.0")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
+#define CURRENT_SENSOR_SCALE 49  //Choose the current scaling factor to suit your sensor, default is for 20A device. ACS712-20A = 49, ACS712-30A = 74
 #define TEMP_RESOLUTION 9 //ADC resolution on temp sensor
 #define TEMP_LIMIT 55 //capacitor temperature limit degC
 #define TEMP_CONVERSION_TIME 120 //measurement time for DS18B20 9,10,11,12 bit = 95ms, 190ms, 375ms, 750ms
@@ -1150,6 +1151,7 @@ static uint16_t readPsuCurrent_ma(void)
   adc = analogRead(g_PsuCurrentAdcPin);
   adc = abs(adc - psuCurrentZeroOffset)*39; //2.5V offset scale=2.5V/20A
   if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes
+
   {
     adc = 0;
   }
