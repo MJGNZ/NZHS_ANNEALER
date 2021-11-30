@@ -6,6 +6,10 @@ Ref doc available here:
 Annealer build and use guide
 http://www.mgnz-makes.com/
 
+SW version 3.4.0
+- Merged changes from stro to reduce RAM usage for fixed strings
+- bug fix for scaling error in current measurement function
+
 SW version 3.3.0
 - Bug fix for stepper interrupt duration
 - Improvement to Anneal timing precision and repeatabilty
