@@ -24,7 +24,7 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.6.0 D") //Dev build for case counter
+#define SOFTWARE_VERSION F("3.7.0")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -51,7 +51,9 @@
 #define CASE_FEEDER_STEPS_PRELOAD_TO_DROP (STEPPER_STEPS_PER_TURN - CASE_FEEDER_STEPS_DROP_TO_PRELOAD + 1)
 #define CASE_FEEDER_HOPPER_START 70*STEPPER_MICROSTEPS*STEPPER_SCALING_FACTOR
 #define CASE_FEEDER_HOPPER_END 130*STEPPER_MICROSTEPS*STEPPER_SCALING_FACTOR
+
 #define MODE_KEY_USED  //defines the use of the mode key input. comment out this #define to disable mode selection and reassign the mode key input to force case drop in the event of a stuck case
+#define SHOW_CASE_COUNT //This enables the display of the total number of cases annealed since powerup. Comment this out if you don't want to see the cases annealed counter.
 
 // temp sensor pin asignment DS1820
 #define ONE_WIRE_BUS 8
@@ -665,10 +667,13 @@ void loop()
         display.println(F(" "));
       }
 
+      #ifdef SHOW_CASE_COUNT
       display.setTextSize(1);
       display.setCursor(60,16);
       display.print(F("CASES: "));
       display.print(CasesAnnealed, 1);
+      #endif
+
       display.setTextSize(2);
 
       display.setCursor(0,16);
@@ -857,19 +862,23 @@ void loop()
       {
         display.clearDisplay();
         display.setCursor(0, 0);
-        display.println(F("LOAD"));
+        #ifdef SHOW_CASE_COUNT
+          display.println(F("LOAD"));
+        #else
+          display.println(F("LOADING"));
+        #endif
         display.print((SystemTimeTarget - millis())/1000, DEC);
         display.print(".");
         display.print(((SystemTimeTarget - millis())%1000)/100, DEC);
         display.print("s");
 
-        //display.setTextSize(1);
-        display.setCursor(65, 0);
-        display.print(F("CASES"));
-        display.setCursor(65, 16);
-        display.print(CasesAnnealed, 1);
-        //display.setTextSize(2);
-        display.drawLine(57,0,57,32,WHITE);
+        #ifdef SHOW_CASE_COUNT
+          display.setCursor(65, 0);
+          display.print(F("CASES"));
+          display.setCursor(65, 16);
+          display.print(CasesAnnealed, 1);
+          display.drawLine(57,0,57,32,WHITE);
+        #endif
 
         display.display();
         break;
