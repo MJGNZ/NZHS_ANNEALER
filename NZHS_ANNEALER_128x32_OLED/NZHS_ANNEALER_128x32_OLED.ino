@@ -24,7 +24,7 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.6.0")
+#define SOFTWARE_VERSION F("3.6.0 D") //Dev build for case counter
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -56,7 +56,7 @@
 // temp sensor pin asignment DS1820
 #define ONE_WIRE_BUS 8
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1, 100000, 100000);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1, 200000, 200000);
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
@@ -512,6 +512,7 @@ void loop()
   static float temperature = 0;
   static bool Just_Booted = 1;
   static bool Next_Cycle_Is_STOPPED = 0;
+  static uint16_t CasesAnnealed = 0;
 
   //boot the watchdog
   wdt_reset();
@@ -655,21 +656,27 @@ void loop()
 
       if(FanIsOn)
       {
-         display.setCursor(70,0);
+         display.setCursor(60,0);
          display.setTextSize(1);
          display.println(F("FAN ON"));
-         display.setTextSize(2);
       }
       else
       {
         display.println(F(" "));
       }
+
+      display.setTextSize(1);
+      display.setCursor(60,16);
+      display.print(F("CASES: "));
+      display.print(CasesAnnealed, 1);
+      display.setTextSize(2);
+
       display.setCursor(0,16);
       display.print(AnnealTime_ms/1000, DEC);
       display.print(F("."));
       display.print((AnnealTime_ms%1000)/100, DEC);
       display.print(F("s"));
-      display.setCursor(70,24);
+      display.setCursor(60,24);
       if(NumberDallasTempDevices != 0)
       {
         display.setTextSize(1);
@@ -681,26 +688,26 @@ void loop()
 
       if(CurrentMode == MODE_FREE_RUN)
       {
-         display.setCursor(70,8);
+         display.setCursor(60,8);
          display.setTextSize(1);
          display.println(F("FREE RUN"));
          display.setTextSize(2);
       }
       else if(CurrentMode == MODE_AUTOMATIC)
       {
-         display.setCursor(70,8);
+         display.setCursor(60,8);
          display.setTextSize(1);
          display.println(F("AUTO FEED"));
          display.setTextSize(2);
       }
       else if(CurrentMode == MODE_SINGLE_SHOT)
       {
-         display.setCursor(70,8);
+         display.setCursor(60,8);
          display.setTextSize(1);
          display.println(F("ONE SHOT"));
          display.setTextSize(2);
       }
-      display.drawLine(64,0,64,32,WHITE);
+      display.drawLine(54,0,54,32,WHITE);
       display.display();
       turnStartStopLedOff();
       turnAnnealerOff();
@@ -787,6 +794,7 @@ void loop()
         break;
       }
       closeDropGate();
+      CasesAnnealed++;
 
       if(temperature > TEMP_LIMIT)
       {
@@ -849,11 +857,20 @@ void loop()
       {
         display.clearDisplay();
         display.setCursor(0, 0);
-        display.println(F("LOADING"));
+        display.println(F("LOAD"));
         display.print((SystemTimeTarget - millis())/1000, DEC);
         display.print(".");
         display.print(((SystemTimeTarget - millis())%1000)/100, DEC);
         display.print("s");
+
+        //display.setTextSize(1);
+        display.setCursor(65, 0);
+        display.print(F("CASES"));
+        display.setCursor(65, 16);
+        display.print(CasesAnnealed, 1);
+        //display.setTextSize(2);
+        display.drawLine(57,0,57,32,WHITE);
+
         display.display();
         break;
       }
