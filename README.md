@@ -6,6 +6,9 @@ Ref doc available here:
 Annealer build and use guide
 http://www.mgnz-makes.com/
 
+SW version 3.6.0 D
+- Develop version of SW 3.6.0 to implement a number of cases annealed counter and display on OLED
+
 SW version 3.6.0
 - Utilise CURRENT_SENSOR_SCALE define in current measurement function
 
