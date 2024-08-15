@@ -24,7 +24,7 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.7.0")
+#define SOFTWARE_VERSION F("3.7.0 D")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -1172,16 +1172,16 @@ static void turnCoolingFanOff(void)
 *//*-------------------------------------------------------------------------*/
 static uint16_t readPsuCurrent_ma(void)
 {
-  uint16_t adc = 0;
+  int16_t adc = 0;
 
-  adc = analogRead(g_PsuCurrentAdcPin);
-  adc = abs(adc - psuCurrentZeroOffset)*CURRENT_SENSOR_SCALE; //2.5V ADC offset , Scaling factor to suit sensor chosen.
-  if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes
+  adc = (int16_t)analogRead(g_PsuCurrentAdcPin);
+  adc = abs(adc - (int16_t)psuCurrentZeroOffset)*CURRENT_SENSOR_SCALE; //2.5V ADC offset , Scaling factor to suit sensor chosen.
+  /*if(adc > 25000) // error from abs function can return large numbers if ADC measurement goes
 
   {
     adc = 0;
-  }
-  return adc;
+  }*/
+  return (uint16_t)adc;
 }
 
 
