@@ -4,6 +4,9 @@ Arduino Uno source code for NZHS Annealer Shield
 Annealer build and use guide
 http://www.mgnz-makes.com/
 
+SW version 3.8.0
+- Fixed bug relating to case feeder home position drift
+
 SW version 3.7.0
 - Added case counter feature. Can be enabled/disabled
 - changed OLED I2C clock speed to improve main loop speed

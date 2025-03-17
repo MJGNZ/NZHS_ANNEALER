@@ -24,7 +24,7 @@
 //                          | | |
 //                          | | |
 //                          | | |
-#define SOFTWARE_VERSION F("3.7.0")
+#define SOFTWARE_VERSION F("3.8.0")
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define PSU_OVERCURRENT 12300 //12.3A
@@ -1005,17 +1005,22 @@ void loop()
   Serial.print(AnnealTime_ms);
   Serial.print(F(";ms;"));
 
-  Serial.print(F("Loop Time Remaining;"));
-  Serial.print(LoopStartTime + LOOP_TIME - millis());
-  Serial.print(F(";ms;"));
-
   Serial.print("Step count;");
   Serial.print(StepsToGo);
   Serial.print(F(";"));
 
+  Serial.print("Steps from home;");
+  Serial.print(StepsFromHome);
+  Serial.print(F(";"));
+
   Serial.print(F("State;"));
   Serial.print(g_SystemState);
-  Serial.println(F(";"));
+  Serial.print(F(";"));
+
+  Serial.print(F("Loop Time Remaining;"));
+  Serial.print(LoopStartTime + LOOP_TIME - millis());
+  Serial.println(F(";ms;"));
+
 
   #endif
 
@@ -1199,7 +1204,8 @@ static void preloadCase(void)
 *//*-------------------------------------------------------------------------*/
 static void loadCase(void)
 {
-	StepsToGo = StepsToGo + CASE_FEEDER_STEPS_PRELOAD_TO_DROP; //multiply by 2 for the 2 half cycles counted by the timer interrupt
+	//StepsToGo = StepsToGo + CASE_FEEDER_STEPS_PRELOAD_TO_DROP; //multiply by 2 for the 2 half cycles counted by the timer interrupt
+  returnCaseFeederHome();
 	//enableStepperPulses(1);
 }
 
