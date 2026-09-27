@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1180" width="1500" height="1180" font-family="Segoe UI, Arial, sans-serif">
+  <title>NZHS Annealer v3.9.0 wiring - Arduino Pro Mini 5V/16MHz (or Nano)</title>
+  <style>
+    .box   { fill: #f8f9fa; stroke: #495057; stroke-width: 1.5; }
+    .board { fill: #1c4e80; stroke: #0b2540; stroke-width: 2; }
+    .pwr   { fill: #fff4e6; stroke: #d9480f; stroke-width: 1.5; }
+    .name  { font-size: 15px; font-weight: 600; fill: #212529; }
+    .note  { font-size: 12.5px; fill: #495057; }
+    .pin   { font-size: 14px; font-weight: 600; fill: #ffffff; }
+    .wl    { font-size: 12px; fill: #343a40; }
+    .in    { stroke: #1971c2; stroke-width: 2.5; fill: none; }
+    .out   { stroke: #e8590c; stroke-width: 2.5; fill: none; }
+    .data  { stroke: #2f9e44; stroke-width: 2.5; fill: none; }
+    .ana   { stroke: #7048e8; stroke-width: 2.5; fill: none; }
+    .v5    { stroke: #c92a2a; stroke-width: 3; fill: none; }
+    .gnd   { stroke: #212529; stroke-width: 3; fill: none; }
+    .v12   { stroke: #e67700; stroke-width: 3; fill: none; stroke-dasharray: 8 4; }
+    .dot   { fill: #ffd43b; stroke: #0b2540; stroke-width: 1; }
+  </style>
+
+  <rect x="0" y="0" width="1500" height="1180" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="750" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="#212529">NZHS Case Annealer v3.9.0 — Wiring</text>
+  <text x="750" y="58" text-anchor="middle" class="note">Arduino Pro Mini 5V / 16 MHz with Optiboot (upload as "Arduino Uno") — identical pin numbers on Arduino Nano</text>
+
+  <!-- Power rails -->
+  <line x1="60" y1="100" x2="1440" y2="100" class="v5"/>
+  <text x="66" y="93" font-size="13" font-weight="600" fill="#c92a2a">+5V RAIL (from 12V→5V buck converter, ≥ 2 A)</text>
+  <line x1="60" y1="128" x2="1440" y2="128" class="gnd"/>
+  <text x="66" y="146" font-size="13" font-weight="600" fill="#212529">GND — COMMON TO EVERYTHING (Pro Mini, PSU, ZVS, stepper, servo, sensors)</text>
+
+  <!-- Board -->
+  <rect x="620" y="170" width="260" height="700" rx="10" class="board"/>
+  <text x="750" y="480" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">ARDUINO</text>
+  <text x="750" y="506" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">PRO MINI</text>
+  <text x="750" y="532" text-anchor="middle" font-size="14" fill="#d0ebff">5V / 16 MHz</text>
+  <text x="750" y="552" text-anchor="middle" font-size="12" fill="#d0ebff">ATmega328P · Optiboot</text>
+
+  <!-- Board power pins -->
+  <line x1="700" y1="100" x2="700" y2="170" class="v5"/>
+  <circle cx="700" cy="100" r="4" fill="#c92a2a"/>
+  <text x="700" y="192" text-anchor="middle" class="pin">VCC</text>
+  <line x1="800" y1="128" x2="800" y2="170" class="gnd"/>
+  <circle cx="800" cy="128" r="4" fill="#212529"/>
+  <text x="800" y="192" text-anchor="middle" class="pin">GND</text>
+  <text x="750" y="215" text-anchor="middle" font-size="11" fill="#d0ebff">RAW not used</text>
+
+  <!-- ============ LEFT SIDE ============ -->
+  <!-- pin labels -->
+  <g class="pin">
+    <text x="632" y="255">D2</text>
+    <text x="632" y="335">D3</text>
+    <text x="632" y="415">A2</text>
+    <text x="632" y="495">D4</text>
+    <text x="632" y="575">D11</text>
+    <text x="632" y="655">D8</text>
+    <text x="632" y="735">D9</text>
+    <text x="632" y="815">D10</text>
+  </g>
+
+  <!-- wires left -->
+  <path d="M620 250 H420" class="in"/>
+  <path d="M620 330 H420" class="in"/>
+  <path d="M620 410 H420" class="in"/>
+  <path d="M620 490 H420" class="out"/>
+  <path d="M620 570 H420" class="out"/>
+  <path d="M620 650 H420" class="data"/>
+  <path d="M620 730 H420" class="out"/>
+  <path d="M620 810 H420" class="out"/>
+  <g>
+    <circle cx="620" cy="250" r="4" class="dot"/><circle cx="620" cy="330" r="4" class="dot"/>
+    <circle cx="620" cy="410" r="4" class="dot"/><circle cx="620" cy="490" r="4" class="dot"/>
+    <circle cx="620" cy="570" r="4" class="dot"/><circle cx="620" cy="650" r="4" class="dot"/>
+    <circle cx="620" cy="730" r="4" class="dot"/><circle cx="620" cy="810" r="4" class="dot"/>
+  </g>
+  <g class="wl">
+    <text x="440" y="243">input (pull-up)</text>
+    <text x="440" y="323">input (pull-up)</text>
+    <text x="440" y="403">input (pull-up)</text>
+    <text x="440" y="483">330 Ω → LED</text>
+    <text x="440" y="563">330 Ω → LED</text>
+    <text x="440" y="643">1-Wire DQ</text>
+    <text x="440" y="723">servo signal</text>
+    <text x="440" y="803">MOSFET gate</text>
+  </g>
+
+  <!-- left modules -->
+  <rect x="70" y="222" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="245" class="name">START / STOP button</text>
+  <text x="84" y="265" class="note">other leg → GND · hold 1.5 s while running = abort</text>
+
+  <rect x="70" y="302" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="325" class="name">MODE button</text>
+  <text x="84" y="345" class="note">other leg → GND · hold 1.5 s = software info</text>
+
+  <rect x="70" y="382" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="405" class="name">TIME / UP button</text>
+  <text x="84" y="425" class="note">other leg → GND · (A2 = D16)</text>
+
+  <rect x="70" y="462" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="485" class="name">START / STOP LED</text>
+  <text x="84" y="505" class="note">D4 → 330 Ω → LED anode, cathode → GND</text>
+
+  <rect x="70" y="542" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="565" class="name">MODE LED</text>
+  <text x="84" y="585" class="note">D11 → 330 Ω → LED anode, cathode → GND</text>
+
+  <rect x="70" y="622" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="645" class="name">DS18B20 temp sensor (capacitors)</text>
+  <text x="84" y="665" class="note">VDD → 5V · GND → GND · 4.7 kΩ from DQ to 5V</text>
+
+  <rect x="70" y="702" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="725" class="name">DROP GATE SERVO</text>
+  <text x="84" y="745" class="note">red (+) → 5V rail · brown/black (−) → GND</text>
+
+  <rect x="70" y="782" width="350" height="56" rx="6" class="box"/>
+  <text x="84" y="805" class="name">DROP SOLENOID (optional, alt. to servo)</text>
+  <text x="84" y="825" class="note">logic MOSFET · 10 kΩ gate→GND · flyback diode on coil</text>
+
+  <!-- ============ RIGHT SIDE ============ -->
+  <g class="pin" text-anchor="end">
+    <text x="868" y="255">A4 SDA</text>
+    <text x="868" y="335">A5 SCL</text>
+    <text x="868" y="415">A0</text>
+    <text x="868" y="495">D12</text>
+    <text x="868" y="575">D13</text>
+    <text x="868" y="655">D5</text>
+    <text x="868" y="735">D6</text>
+    <text x="868" y="815">D7</text>
+  </g>
+
+  <path d="M880 250 H1080" class="data"/>
+  <path d="M880 330 H1080" class="data"/>
+  <path d="M880 410 H1080" class="ana"/>
+  <path d="M880 490 H1080" class="out"/>
+  <path d="M880 570 H1080" class="out"/>
+  <path d="M880 650 H1080" class="out"/>
+  <path d="M880 730 H1080" class="out"/>
+  <path d="M880 810 H1080" class="out"/>
+  <g>
+    <circle cx="880" cy="250" r="4" class="dot"/><circle cx="880" cy="330" r="4" class="dot"/>
+    <circle cx="880" cy="410" r="4" class="dot"/><circle cx="880" cy="490" r="4" class="dot"/>
+    <circle cx="880" cy="570" r="4" class="dot"/><circle cx="880" cy="650" r="4" class="dot"/>
+    <circle cx="880" cy="730" r="4" class="dot"/><circle cx="880" cy="810" r="4" class="dot"/>
+  </g>
+  <g class="wl" text-anchor="end">
+    <text x="1070" y="243">SDA</text>
+    <text x="1070" y="323">SCL</text>
+    <text x="1070" y="403">OUT (analog)</text>
+    <text x="1070" y="483">STEP</text>
+    <text x="1070" y="563">DIR</text>
+    <text x="1070" y="643">EN (LOW = on)</text>
+    <text x="1070" y="723">IN / gate</text>
+    <text x="1070" y="803">IN / gate</text>
+  </g>
+
+  <!-- OLED -->
+  <rect x="1080" y="215" width="360" height="150" rx="6" class="box"/>
+  <text x="1094" y="240" class="name">OLED SSD1306 0.96" 128×64 (I2C)</text>
+  <text x="1094" y="262" class="note">VCC → 5V · GND → GND</text>
+  <text x="1094" y="282" class="note">address 0x3C (0x3D if jumper set to 0x7A)</text>
+  <text x="1094" y="302" class="note">Pro Mini: A4/A5 are the separate inner pads</text>
+  <text x="1094" y="322" class="note">— solder wires directly to them</text>
+  <text x="1094" y="350" class="note">SDA ← A4        SCL ← A5</text>
+
+  <!-- ACS712 -->
+  <rect x="1080" y="382" width="360" height="56" rx="6" class="box"/>
+  <text x="1094" y="405" class="name">ACS712 current sensor (30A)</text>
+  <text x="1094" y="425" class="note">VCC → 5V · GND → GND · IP+/IP− in ZVS 12V feed</text>
+
+  <!-- Stepper driver -->
+  <rect x="1080" y="462" width="360" height="216" rx="6" class="box"/>
+  <text x="1094" y="487" class="name">STEPPER DRIVER (A4988 / DRV8825)</text>
+  <text x="1094" y="509" class="note">STEP ← D12 · DIR ← D13 · EN ← D5</text>
+  <text x="1094" y="529" class="note">VDD → 5V · GND → GND (logic)</text>
+  <text x="1094" y="549" class="note">VMOT → 12V · GND → GND · 100 µF across VMOT</text>
+  <text x="1094" y="569" class="note">MS1, MS2, MS3 → 5V (1/16 microstep, A4988)</text>
+  <text x="1094" y="589" class="note">RESET ↔ SLEEP linked (A4988)</text>
+  <text x="1094" y="609" class="note">1A/1B/2A/2B → stepper motor coils</text>
+  <text x="1094" y="629" class="note">set current limit (Vref) before use</text>
+  <text x="1094" y="659" class="note" font-style="italic">Auto-feed mode only</text>
+
+  <!-- ZVS -->
+  <rect x="1080" y="702" width="360" height="56" rx="6" class="box"/>
+  <text x="1094" y="725" class="name">ZVS INDUCTION BOARD (relay / MOSFET)</text>
+  <text x="1094" y="745" class="note">HIGH = heating · 10 kΩ pull-down D6 → GND</text>
+
+  <!-- Fan -->
+  <rect x="1080" y="782" width="360" height="56" rx="6" class="box"/>
+  <text x="1094" y="805" class="name">COOLING FAN (MOSFET / relay)</text>
+  <text x="1094" y="825" class="note">10 kΩ pull-down D7 → GND · diode across fan</text>
+
+  <!-- ============ POWER + PROGRAMMING ============ -->
+  <rect x="70" y="905" width="560" height="175" rx="8" class="pwr"/>
+  <text x="86" y="932" class="name">POWER</text>
+  <text x="86" y="956" class="note">12 V PSU (sized for the ZVS board) →</text>
+  <text x="106" y="976" class="note">• ZVS induction board (through ACS712)</text>
+  <text x="106" y="996" class="note">• Stepper driver VMOT · 12 V fan</text>
+  <text x="86" y="1020" class="note">12 V → buck converter 5 V ≥ 2 A → +5V rail →</text>
+  <text x="106" y="1040" class="note">• Pro Mini VCC · OLED · servo · ACS712 · DS18B20 · driver VDD</text>
+  <text x="86" y="1066" class="note" font-weight="600" fill="#c92a2a">Don't power the servo/fan from the Pro Mini regulator (RAW).</text>
+
+  <rect x="660" y="905" width="380" height="175" rx="8" class="box"/>
+  <text x="676" y="932" class="name">PROGRAMMING (USB-serial adapter)</text>
+  <text x="676" y="956" class="note">Adapter set to 5 V</text>
+  <text x="676" y="978" class="note">GND → GND  ·  VCC → VCC</text>
+  <text x="676" y="998" class="note">TX → RXI  ·  RX → TXO</text>
+  <text x="676" y="1018" class="note">DTR → DTR / GRN (auto reset)</text>
+  <text x="676" y="1044" class="note">Arduino IDE: Board = Arduino Uno</text>
+  <text x="676" y="1064" class="note">Power from adapter VCC OR the 5V rail, never both</text>
+
+  <!-- Legend -->
+  <rect x="1070" y="905" width="370" height="175" rx="8" class="box"/>
+  <text x="1086" y="932" class="name">LEGEND</text>
+  <line x1="1086" y1="955" x2="1126" y2="955" class="in"/>   <text x="1136" y="959" class="note">button input (INPUT_PULLUP)</text>
+  <line x1="1086" y1="977" x2="1126" y2="977" class="out"/>  <text x="1136" y="981" class="note">digital output</text>
+  <line x1="1086" y1="999" x2="1126" y2="999" class="data"/> <text x="1136" y="1003" class="note">I2C / 1-Wire data</text>
+  <line x1="1086" y1="1021" x2="1126" y2="1021" class="ana"/> <text x="1136" y="1025" class="note">analog input</text>
+  <line x1="1086" y1="1043" x2="1126" y2="1043" class="v5"/>  <text x="1136" y="1047" class="note">+5 V</text>
+  <line x1="1086" y1="1065" x2="1126" y2="1065" class="gnd"/> <text x="1136" y="1069" class="note">GND</text>
+
+  <text x="750" y="1130" text-anchor="middle" class="note">Free pins: D0/D1 (serial), A1, A3, A6, A7 · Solenoid on D10 and servo on D9 are both driven — fit whichever you use.</text>
+  <text x="750" y="1152" text-anchor="middle" class="note">Test the first power-up with the ZVS board disconnected.</text>
+</svg>
